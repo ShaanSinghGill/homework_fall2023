@@ -50,7 +50,7 @@ class DQNAgent(nn.Module):
         # TODO(student): get the action from the critic using an epsilon-greedy strategy
         q_values = self.critic(observation)
         if np.random.rand() > epsilon:
-            action = torch.argmax(q_values)
+            action = torch.argmax(q_values, dim =-1)
         else: 
             action = torch.tensor(np.random.randint(self.num_actions))
         
@@ -73,7 +73,8 @@ class DQNAgent(nn.Module):
             next_qa_values = self.target_critic(next_obs)
             # print("NNNNNN next_qa_values.shape", next_qa_values.shape)
             if self.use_double_q:
-                raise NotImplementedError
+                critic_actions = self.critic(next_obs)
+                next_action = critic_actions.argmax(dim =1)
             else:
                 next_action = next_qa_values.argmax(dim= 1)
                 # print("NNNNNEXT action and next qa", next_action.shape, next_qa_values.shape)
@@ -84,7 +85,7 @@ class DQNAgent(nn.Module):
         # TODO(student): train the critic with the target values
         qa_values = self.critic(obs)
         q_values = torch.gather(qa_values, 1, action.unsqueeze(1)) # Compute from the data actions; see torch.gather
-        # print("q_values.squeeze(1).shape, target_values.shape", q_values.shape, target_values.shape )
+        # print("q_values.shape, target_values.shape", q_values.shape, target_values.shape )
         loss = self.critic_loss(q_values.squeeze(1), target_values)
 
 

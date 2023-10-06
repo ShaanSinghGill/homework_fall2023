@@ -99,16 +99,24 @@ def run_training_loop(config: dict, logger: Logger, args: argparse.Namespace):
         next_observation = np.asarray(next_observation)
         truncated = info.get("TimeLimit.truncated", False)
         # TODO truncated
-        if truncated:
-            done = False
+        # if truncated:
+            # done = False
+        # new_done = (not truncated) and (done==True)
+        new_done = False if truncated else done
+        # if done: 
+        #     print("done is true", truncated, done)
         # TODO(student): Add the data to the replay buffer
         if isinstance(replay_buffer, MemoryEfficientReplayBuffer):
             # We're using the memory-efficient replay buffer,
             # so we only insert next_observation (not observation)
-            replay_buffer.insert(action, reward, next_observation, done)
+            if stacked_frames:
+                replay_buffer.insert(action, reward, next_observation[-1], new_done)
+            else: 
+                replay_buffer.insert(action, reward, next_observation, new_done)
+
         else:
             # We're using the regular replay buffer
-            replay_buffer.insert(observation, action, reward, next_observation, done)
+            replay_buffer.insert(observation, action, reward, next_observation, new_done)
 
 
         # Handle episode termination
