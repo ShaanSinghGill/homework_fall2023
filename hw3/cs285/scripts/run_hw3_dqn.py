@@ -101,10 +101,8 @@ def run_training_loop(config: dict, logger: Logger, args: argparse.Namespace):
         # TODO truncated
         # if truncated:
             # done = False
-        # new_done = (not truncated) and (done==True)
-        new_done = False if truncated else done
-        # if done: 
-        #     print("done is true", truncated, done)
+        new_done = (not truncated) and (done)
+        # new_done = False if truncated else done
         # TODO(student): Add the data to the replay buffer
         if isinstance(replay_buffer, MemoryEfficientReplayBuffer):
             # We're using the memory-efficient replay buffer,
