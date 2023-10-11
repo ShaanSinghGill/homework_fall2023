@@ -150,8 +150,9 @@ class SoftActorCritic(nn.Module):
         # TODO(student): Implement the different backup strategies.
         if self.target_critic_backup_type == "doubleq":
             next_qs = torch.stack((next_qs[1], next_qs[0]), dim=0)
+
         elif self.target_critic_backup_type == "min":
-            raise NotImplementedError
+            next_qs, _ = next_qs.min(dim=0)
             # next_qs = next_qs[None].expand((self.num_critic_networks, batch_size)).contiguous()
         else:
             # Default, we don't need to do anything.
@@ -236,7 +237,7 @@ class SoftActorCritic(nn.Module):
 
         # TODO(student): Compute the entropy of the action distribution.
         # Note: Think about whether to use .rsample() or .sample() here...
-        return -1*torch.mean(action_distribution.log_prob(action_distribution.rsample([self.num_actor_samples])),0)
+        return -1*torch.mean(action_distribution.log_prob(action_distribution.rsample()),0)
 
     def actor_loss_reinforce(self, obs: torch.Tensor):
         batch_size = obs.shape[0]
@@ -245,7 +246,7 @@ class SoftActorCritic(nn.Module):
 
         with torch.no_grad():
             # TODO(student): draw num_actor_samples samples from the action distribution for each batch element
-            action = action_distribution.sample([self.action_dim])
+            action = action_distribution.sample([self.num_actor_samples])
             assert action.shape == (
                 self.num_actor_samples,
                 batch_size,
@@ -253,7 +254,7 @@ class SoftActorCritic(nn.Module):
             ), action.shape
 
             # TODO(student): Compute Q-values for the current state-action pair
-            q_values = self.critic(obs.unsqueeze(0), action)
+            q_values = self.critic(obs.unsqueeze(0).repeat(self.num_actor_samples, 1, 1), action)
             assert q_values.shape == (
                 self.num_critic_networks,
                 self.num_actor_samples,
@@ -279,13 +280,13 @@ class SoftActorCritic(nn.Module):
 
         # TODO(student): Sample actions
         # Note: Think about whether to use .rsample() or .sample() here...
-        action = ...
+        action = action_distribution.rsample()
 
         # TODO(student): Compute Q-values for the sampled state-action pair
-        q_values = ...
+        q_values = self.critic(obs, action)
 
         # TODO(student): Compute the actor loss
-        loss = ...
+        loss = -1 * torch.mean(q_values)
 
         return loss, torch.mean(self.entropy(action_distribution))
 
