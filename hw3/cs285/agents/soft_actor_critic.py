@@ -237,7 +237,7 @@ class SoftActorCritic(nn.Module):
 
         # TODO(student): Compute the entropy of the action distribution.
         # Note: Think about whether to use .rsample() or .sample() here...
-        return -1*torch.mean(action_distribution.log_prob(action_distribution.rsample()),0)
+        return -1*torch.mean(action_distribution.log_prob(action_distribution.rsample([self.num_actor_samples])),0)
 
     def actor_loss_reinforce(self, obs: torch.Tensor):
         batch_size = obs.shape[0]
@@ -280,10 +280,10 @@ class SoftActorCritic(nn.Module):
 
         # TODO(student): Sample actions
         # Note: Think about whether to use .rsample() or .sample() here...
-        action = action_distribution.rsample()
+        action = action_distribution.rsample([self.num_actor_samples])
 
         # TODO(student): Compute Q-values for the sampled state-action pair
-        q_values = self.critic(obs, action)
+        q_values = self.critic(obs.unsqueeze(0), action)
 
         # TODO(student): Compute the actor loss
         loss = -1 * torch.mean(q_values)
