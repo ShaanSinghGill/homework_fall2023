@@ -153,7 +153,6 @@ class SoftActorCritic(nn.Module):
 
         elif self.target_critic_backup_type == "min":
             next_qs, _ = next_qs.min(dim=0)
-            # next_qs = next_qs[None].expand((self.num_critic_networks, batch_size)).contiguous()
         else:
             # Default, we don't need to do anything.
             pass
