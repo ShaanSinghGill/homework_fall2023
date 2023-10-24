@@ -89,12 +89,18 @@ class ModelBasedAgent(nn.Module):
         # directly
         # HINT 3: make sure to avoid any risk of dividing by zero when
         # normalizing vectors by adding a small number to the denominator!
-        loss = ...
+        obs_delta = (next_obs - obs)
+        obs_delta = (obs_delta - self.obs_delta_mean.expand(obs.shape)) / (self.obs_delta_std.expand(obs.shape) + 1e-9)
+        
+        # print(torch.concatenate((obs, acs), dim=-1).shape)
+        oas = torch.concatenate((obs, acs), dim=-1)
+        oas = (oas - self.obs_acs_mean.expand(oas.shape))/(self.obs_acs_std.expand(oas.shape) + 1e-9)
+        
+        loss = self.loss_fn(self.dynamics_models[i].forward(oas), obs_delta)
 
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-
         return ptu.to_numpy(loss)
 
     @torch.no_grad()
@@ -111,10 +117,11 @@ class ModelBasedAgent(nn.Module):
         acs = ptu.from_numpy(acs)
         next_obs = ptu.from_numpy(next_obs)
         # TODO(student): update the statistics
-        self.obs_acs_mean = ...
-        self.obs_acs_std = ...
-        self.obs_delta_mean = ...
-        self.obs_delta_std = ...
+        self.obs_acs_mean = torch.mean(torch.concatenate((obs, acs), dim= -1), dim = 0)
+        self.obs_acs_std = torch.std(torch.concatenate((obs, acs), dim= -1), dim = 0)
+        self.obs_delta_mean = torch.mean(next_obs-obs, dim = 0)
+        self.obs_delta_std = torch.std(next_obs-obs, dim = 0)
+
 
     @torch.no_grad()
     def get_dynamics_predictions(
@@ -135,6 +142,11 @@ class ModelBasedAgent(nn.Module):
         # HINT: make sure to *unnormalize* the NN outputs (observation deltas)
         # Same hints as `update` above, avoid nasty divide-by-zero errors when
         # normalizing inputs!
+        oas = torch.concatenate((obs, acs), dim= -1)
+        pred_delta_obs = self.dynamics_models[i](oas)
+        pred_delta_obs = (pred_delta_obs  * self.obs_delta_std) + self.obs_delta_mean
+        
+        pred_next_obs = obs + pred_delta_obs
         return ptu.to_numpy(pred_next_obs)
 
     def evaluate_action_sequences(self, obs: np.ndarray, action_sequences: np.ndarray):
@@ -160,7 +172,9 @@ class ModelBasedAgent(nn.Module):
         obs = np.tile(obs, (self.ensemble_size, self.mpc_num_action_sequences, 1))
 
         # TODO(student): for each batch of actions in in the horizon...
-        for acs in ...:
+        horizon = action_sequences.shape[1]
+        for acs in range(horizon):
+            acs = action_sequences[:, acs, :]
             assert acs.shape == (self.mpc_num_action_sequences, self.ac_dim)
             assert obs.shape == (
                 self.ensemble_size,
@@ -170,7 +184,10 @@ class ModelBasedAgent(nn.Module):
 
             # TODO(student): predict the next_obs for each rollout
             # HINT: use self.get_dynamics_predictions
-            next_obs = ...
+            next_obs = np.array([[self.get_dynamics_predictions(ensemble, obs[ensemble, acseq], acs[acseq]) 
+                      for acseq in range(self.mpc_num_action_sequences)] 
+                     for ensemble in range(self.ensemble_size)])
+            
             assert next_obs.shape == (
                 self.ensemble_size,
                 self.mpc_num_action_sequences,
@@ -183,7 +200,7 @@ class ModelBasedAgent(nn.Module):
             # respectively, and returns a tuple of `(rewards, dones)`. You can 
             # ignore `dones`. You might want to do some reshaping to make
             # `next_obs` and `acs` 2-dimensional.
-            rewards = ...
+            rewards = np.array([self.env.get_reward(next_obs[ensemble], acs)[0] for ensemble in range(self.ensemble_size)])
             assert rewards.shape == (self.ensemble_size, self.mpc_num_action_sequences)
 
             sum_of_rewards += rewards
@@ -219,5 +236,6 @@ class ModelBasedAgent(nn.Module):
                 # TODO(student): implement the CEM algorithm
                 # HINT: you need a special case for i == 0 to initialize
                 # the elite mean and std
+                pass
         else:
             raise ValueError(f"Invalid MPC strategy '{self.mpc_strategy}'")
