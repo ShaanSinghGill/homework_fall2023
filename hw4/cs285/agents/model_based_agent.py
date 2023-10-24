@@ -119,8 +119,8 @@ class ModelBasedAgent(nn.Module):
         # TODO(student): update the statistics
         self.obs_acs_mean = torch.mean(torch.concatenate((obs, acs), dim= -1), dim = 0)
         self.obs_acs_std = torch.std(torch.concatenate((obs, acs), dim= -1), dim = 0)
-        self.obs_delta_mean = torch.mean(next_obs-obs, dim = 0)
-        self.obs_delta_std = torch.std(next_obs-obs, dim = 0)
+        self.obs_delta_mean = torch.mean(next_obs - obs, dim = 0)
+        self.obs_delta_std = torch.std(next_obs - obs, dim = 0)
 
 
     @torch.no_grad()
