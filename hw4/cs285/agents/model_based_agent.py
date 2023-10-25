@@ -117,10 +117,12 @@ class ModelBasedAgent(nn.Module):
         acs = ptu.from_numpy(acs)
         next_obs = ptu.from_numpy(next_obs)
         # TODO(student): update the statistics
-        self.obs_acs_mean = torch.mean(torch.concatenate((obs, acs), dim= -1), dim = 0)
-        self.obs_acs_std = torch.std(torch.concatenate((obs, acs), dim= -1), dim = 0)
-        self.obs_delta_mean = torch.mean(next_obs - obs, dim = 0)
-        self.obs_delta_std = torch.std(next_obs - obs, dim = 0)
+        oas = torch.cat((obs, acs), dim=-1)
+        self.obs_acs_mean = torch.mean(oas, dim = 0)
+        self.obs_acs_std = torch.std(oas, dim = 0) + 1e-9
+        obs_delta = next_obs - obs
+        self.obs_delta_mean = torch.mean(obs_delta, dim = 0)
+        self.obs_delta_std = torch.std(obs_delta, dim = 0) + 1e-9
 
 
     @torch.no_grad()
@@ -142,11 +144,11 @@ class ModelBasedAgent(nn.Module):
         # HINT: make sure to *unnormalize* the NN outputs (observation deltas)
         # Same hints as `update` above, avoid nasty divide-by-zero errors when
         # normalizing inputs!
-        oas = torch.concatenate((obs, acs), dim= -1)
-        pred_delta_obs = self.dynamics_models[i](oas)
-        pred_delta_obs = (pred_delta_obs  * self.obs_delta_std) + self.obs_delta_mean
+        pred_delta_obs = self.dynamics_models[i](torch.concatenate((obs, acs), dim = -1))
+        pred_delta_obs = (pred_delta_obs  * (self.obs_delta_std)) + self.obs_delta_mean
+        pred_next_obs = pred_delta_obs + obs
         
-        pred_next_obs = obs + pred_delta_obs
+        assert ptu.to_numpy(pred_next_obs).shape == (obs.shape[0], obs.shape[1])
         return ptu.to_numpy(pred_next_obs)
 
     def evaluate_action_sequences(self, obs: np.ndarray, action_sequences: np.ndarray):
@@ -173,8 +175,8 @@ class ModelBasedAgent(nn.Module):
 
         # TODO(student): for each batch of actions in in the horizon...
         horizon = action_sequences.shape[1]
-        for acs in range(horizon):
-            acs = action_sequences[:, acs, :]
+        for acs_index in range(horizon):
+            acs = action_sequences[:, acs_index, :]
             assert acs.shape == (self.mpc_num_action_sequences, self.ac_dim)
             assert obs.shape == (
                 self.ensemble_size,
@@ -184,9 +186,10 @@ class ModelBasedAgent(nn.Module):
 
             # TODO(student): predict the next_obs for each rollout
             # HINT: use self.get_dynamics_predictions
-            next_obs = np.array([[self.get_dynamics_predictions(ensemble, obs[ensemble, acseq], acs[acseq]) 
-                      for acseq in range(self.mpc_num_action_sequences)] 
-                     for ensemble in range(self.ensemble_size)])
+            next_obs = np.array([
+                self.get_dynamics_predictions(i, obs[i], acs) 
+                for i in range(self.ensemble_size)
+            ])
             
             assert next_obs.shape == (
                 self.ensemble_size,
@@ -200,9 +203,17 @@ class ModelBasedAgent(nn.Module):
             # respectively, and returns a tuple of `(rewards, dones)`. You can 
             # ignore `dones`. You might want to do some reshaping to make
             # `next_obs` and `acs` 2-dimensional.
-            rewards = np.array([self.env.get_reward(next_obs[ensemble], acs)[0] for ensemble in range(self.ensemble_size)])
+            # rewards = np.array([self.env.get_reward(next_obs[ensemble], acs)[0] for ensemble in range(self.ensemble_size)])
+            # reshaped_next_obs = next_obs.reshape(-1, self.ob_dim)
+            # repeated_acs = np.tile(acs, (self.ensemble_size, 1))
+            # rewards, _ = self.env.get_reward(reshaped_next_obs, repeated_acs)
+            # rewards = rewards.reshape(self.ensemble_size, self.mpc_num_action_sequences)
+            rewards = np.array([
+                self.env.get_reward(next_obs[i], acs)[0]
+                for i in range(self.ensemble_size)
+            ])
+        
             assert rewards.shape == (self.ensemble_size, self.mpc_num_action_sequences)
-
             sum_of_rewards += rewards
 
             obs = next_obs
