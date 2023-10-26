@@ -47,8 +47,8 @@ def collect_mbpo_rollout(
         ac = sac_agent.get_action(ob)
         next_ob = np.array([mb_agent.get_dynamics_predictions(i, ob, ac)
                             for i in range(mb_agent.ensemble_size)]).mean(axis=0)
-        rew = env.get_reward(ob, ac, next_ob)
-        
+        rew = env.get_reward(next_ob, ac)
+        print("CCccccccccccccccccccccccccccccccALLED")
         obs.append(ob)
         acs.append(ac)
         rewards.append(rew)
@@ -124,11 +124,11 @@ def run_training_loop(
             # TODO(student): collect at least config["initial_batch_size"] transitions with a random policy
             # HINT: Use `utils.RandomPolicy` and `utils.sample_trajectories`
             trajs, envsteps_this_batch = utils.sample_trajectories(
-                env, utils.RandomPolicy(env), config["initial_batch_size"], config["ep_len"])
+                env, utils.RandomPolicy(env), config["initial_batch_size"], ep_len)
         else:
             # TODO(student): collect at least config["batch_size"] transitions with our `actor_agent`
             trajs, envsteps_this_batch = utils.sample_trajectories(
-                env, actor_agent, config["batch_size"], config["ep_len"])
+                env, actor_agent, config["batch_size"], ep_len)
 
         total_envsteps += envsteps_this_batch
         logger.log_scalar(total_envsteps, "total_envsteps", itr)
