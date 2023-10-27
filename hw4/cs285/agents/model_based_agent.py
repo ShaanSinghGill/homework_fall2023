@@ -253,16 +253,16 @@ class ModelBasedAgent(nn.Module):
             return action_sequences[best_index][0]
         elif self.mpc_strategy == "cem":
             elite_mean, elite_std = None, None
-            elite_mean, elite_std =np.zeros((self.mpc_horizon, self.ac_dim)), np.ones((self.mpc_horizon, self.ac_dim))
+            elite_mean, elite_std = np.zeros((self.mpc_horizon, self.ac_dim)), np.ones((self.mpc_horizon, self.ac_dim))
+            # elite_mean, elite_std = action_sequences.mean(axis = 0), action_sequences.std(axis = 0)
             for i in range(self.cem_num_iters):
                 # TODO(student): implement the CEM algorithm
                 # HINT: you need a special case for i == 0 to initialize
                 # the elite mean and std
                 # Sample action sequences
                 sampled_sequences = np.random.normal(elite_mean, elite_std, (self.mpc_num_action_sequences, self.mpc_horizon, self.ac_dim))
-                # Evaluate sampled sequences
+                # sampled_sequences = np.clip(sampled_sequences, self.env.action_space.low, self.env.action_space.high )
                 sequence_rewards = self.evaluate_action_sequences(obs, sampled_sequences)
-                # Select top-k elite sequences
                 elite_indices = np.argsort(sequence_rewards)[-self.cem_num_elites:]
                 elite_sequences = sampled_sequences[elite_indices]
                 # Update mean and std
