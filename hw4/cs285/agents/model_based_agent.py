@@ -117,7 +117,7 @@ class ModelBasedAgent(nn.Module):
         acs = ptu.from_numpy(acs)
         next_obs = ptu.from_numpy(next_obs)
         # TODO(student): update the statistics
-        oas = torch.cat((obs, acs), dim=-1)
+        oas = torch.concatenate((obs, acs), dim=-1)
         self.obs_acs_mean = torch.mean(oas, dim = 0)
         self.obs_acs_std = torch.std(oas, dim = 0) + 1e-9
         obs_delta = next_obs - obs
