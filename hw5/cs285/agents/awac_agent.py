@@ -39,7 +39,7 @@ class AWACAgent(DQNAgent):
             
             # Use the actor to compute a critic backup
             next_qs = next_qa_values.mean(dim=-1, keepdim=True)
-
+ 
             # TODO(student): Compute the TD target
             target_values = rewards + self.discount * next_qs * (1 - dones.float())
 
