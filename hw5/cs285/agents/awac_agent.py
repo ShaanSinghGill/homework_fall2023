@@ -38,17 +38,18 @@ class AWACAgent(DQNAgent):
                 next_observations).gather(1, next_actions.unsqueeze(1))
             
             # Use the actor to compute a critic backup
-            next_qs = next_qa_values.mean(dim=-1, keepdim=True)
- 
+            # next_qs = next_qa_values.mean(dim=-1)
+            next_qs = torch.sum(
+                self.actor(next_observations).probs * self.critic(observations).gather(1, next_actions.unsqueeze(1)), 1)
+            
             # TODO(student): Compute the TD target
             target_values = rewards + self.discount * next_qs * (1 - dones.float())
 
         # TODO(student): Compute Q(s, a) and loss similar to DQN
         q_values = self.critic(observations).gather(1, actions.unsqueeze(1)).squeeze(1)
-        
         assert q_values.shape == target_values.shape
         loss = nn.MSELoss()(q_values, target_values)
-        qa_values = q_values
+        qa_values = next_qa_values
         
         return (
             loss,
@@ -74,7 +75,7 @@ class AWACAgent(DQNAgent):
         if action_dist is None:
             action_dist = self.actor(observations)            
         q_values = torch.sum(
-            action_dist.probs * self.critic(observations).gather(1, action_dist.sample().unsqueeze(1)), dim=1)
+            action_dist.probs * self.critic(observations).gather(1, action_dist.sample().unsqueeze(1)), 1)
         # values = ...
         advantages = qa_values - q_values
         return advantages
@@ -86,9 +87,10 @@ class AWACAgent(DQNAgent):
     ):
         # TODO(student): update the actor using AWAC
         action_log_probs = self.actor(observations).log_prob(actions)
-        advantages = self.compute_advantage(observations, actions)
-        weights = torch.exp(advantages / self.temperature)
-        loss = -torch.mean(weights * action_log_probs)
+        with torch.no_grad():
+            advantages = self.compute_advantage(observations, actions)
+            weights = torch.exp(advantages / self.temperature)
+        loss = -1 * torch.mean(weights * action_log_probs)
 
         self.actor_optimizer.zero_grad()
         loss.backward()

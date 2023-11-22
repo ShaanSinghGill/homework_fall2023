@@ -84,7 +84,7 @@ class IQLAgent(AWACAgent):
         """
         # TODO(student): Compute the expectile loss
         error = target_qs - vs
-        weights = torch.where(error <= 0, 1 - expectile, expectile)
+        weights = torch.where(error < 0, 1 - expectile, expectile)
         loss = torch.mean(weights * (error**2), dim= 0)
         return loss
 
