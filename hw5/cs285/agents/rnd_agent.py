@@ -46,11 +46,13 @@ class RNDAgent(DQNAgent):
         Update the RND network using the observations.
         """
         # TODO(student): update the RND network
-        loss_fn = nn.MSELoss()
-        target = self.rnd_target_net(obs)
-        predicted = self.rnd_net(obs)
-        loss = loss_fn(predicted, target)
-
+        # loss_fn = nn.MSELoss()
+        # target = self.rnd_target_net(obs)
+        # predicted = self.rnd_net(obs)
+        # loss = loss_fn(predicted, target)
+        loss = torch.mean(torch.linalg.vector_norm(
+            self.rnd_net(obs) - self.rnd_target_net(obs), dim=1))
+        
         self.rnd_optimizer.zero_grad()
         loss.backward()
         self.rnd_optimizer.step()

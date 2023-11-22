@@ -31,25 +31,21 @@ class AWACAgent(DQNAgent):
         dones: torch.Tensor,
     ):
         with torch.no_grad():
-            # TODO(student): compute the actor distribution, then use it to compute E[Q(s, a)]
-            next_actions = self.actor(next_observations).sample()
-            
-            next_qa_values = self.critic(
-                next_observations).gather(1, next_actions.unsqueeze(1))
-            
+            # TODO(student): compute the actor distribution, then use it to compute E[Q(s, a)]            
+            next_qa_values = self.critic(next_observations)
+        
             # Use the actor to compute a critic backup
-            # next_qs = next_qa_values.mean(dim=-1)
-            next_qs = torch.sum(
-                self.actor(next_observations).probs * self.critic(observations).gather(1, next_actions.unsqueeze(1)), 1)
-            
+            next_qs = torch.sum(self.actor(next_observations).probs * next_qa_values, 1)
+        
             # TODO(student): Compute the TD target
             target_values = rewards + self.discount * next_qs * (1 - dones.float())
 
         # TODO(student): Compute Q(s, a) and loss similar to DQN
-        q_values = self.critic(observations).gather(1, actions.unsqueeze(1)).squeeze(1)
+        qa_values = self.critic(observations)
+        q_values = qa_values.gather(1, actions.unsqueeze(1)).squeeze(1)
         assert q_values.shape == target_values.shape
+
         loss = nn.MSELoss()(q_values, target_values)
-        qa_values = next_qa_values
         
         return (
             loss,
@@ -71,13 +67,16 @@ class AWACAgent(DQNAgent):
         action_dist: Optional[torch.distributions.Categorical] = None,
     ):
         # TODO(student): compute the advantage of the actions compared to E[Q(s, a)]
-        qa_values = self.critic(observations).gather(1, actions.unsqueeze(1))
+        qa_values = self.critic(observations)
         if action_dist is None:
             action_dist = self.actor(observations)            
-        q_values = torch.sum(
-            action_dist.probs * self.critic(observations).gather(1, action_dist.sample().unsqueeze(1)), 1)
-        # values = ...
-        advantages = qa_values - q_values
+        # q_values = torch.sum(
+        #     action_dist.probs * self.critic(observations).gather(1, action_dist.sample().unsqueeze(1)), 1)
+        values = torch.sum(action_dist.probs * self.critic(observations), 1)
+        q_values = qa_values.gather(1, actions.unsqueeze(1)).squeeze(1)
+        assert q_values.shape == values.shape, f"{q_values.shape}, {values.shape},"
+        advantages =  q_values - values
+        
         return advantages
 
     def update_actor(

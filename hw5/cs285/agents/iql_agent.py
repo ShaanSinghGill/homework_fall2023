@@ -39,7 +39,9 @@ class IQLAgent(AWACAgent):
     ):
         # TODO(student): Compute advantage with IQL
         qs = self.critic(observations).gather(1, actions.unsqueeze(1))
-        return qs - self.value_critic(observations)
+        vs = self.value_critic(observations)
+        return qs - vs
+
 
     def update_q(
         self,
@@ -55,8 +57,8 @@ class IQLAgent(AWACAgent):
         # TODO(student): Update Q(s, a) to match targets (based on V)
         q_values = self.critic(observations).gather(1, actions.unsqueeze(1))
         with torch.no_grad():
-            next_v_values = self.target_value_critic(next_observations)
-            target_values = rewards + self.discount * next_v_values * (1 - dones.float())
+            next_v_values = self.value_critic(next_observations) #Should this just be value_critic?
+        target_values = rewards + self.discount * next_v_values * (1 - dones.float())
         loss = nn.MSELoss()(q_values, target_values)
 
         self.critic_optimizer.zero_grad()
@@ -84,8 +86,8 @@ class IQLAgent(AWACAgent):
         """
         # TODO(student): Compute the expectile loss
         error = target_qs - vs
-        weights = torch.where(error < 0, 1 - expectile, expectile)
-        loss = torch.mean(weights * (error**2), dim= 0)
+        weights = torch.where(error <= 0, 1 - expectile, expectile)
+        loss = torch.mean(weights * (error**2), dim=0)
         return loss
 
     def update_v(
@@ -101,7 +103,7 @@ class IQLAgent(AWACAgent):
         # TODO(student): Update V(s) using the loss from the IQL paper
         with torch.no_grad():
             target_values = self.critic(observations).gather(1, actions.unsqueeze(1))
-        vs = self.value_critic(observations)
+        vs = self.target_value_critic(observations) #Should this just be value_critic?
         loss = self.iql_expectile_loss(self.expectile, vs, target_values)
 
         self.value_critic_optimizer.zero_grad()
