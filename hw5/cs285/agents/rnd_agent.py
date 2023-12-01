@@ -116,3 +116,4 @@ class RNDAgent(DQNAgent):
             from matplotlib import cm
             ax.imshow(ptu.to_numpy(errors).T, extent=[0, 1, 0, 1], origin="lower", cmap="hot")
             plt.colorbar(ax.images[0], ax=ax)
+            
